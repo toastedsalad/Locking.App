@@ -44,7 +44,7 @@ namespace Locking.App.Test
         }
 
         [Fact]
-        public void ReleaseLock_Should_Return_Truen_When_Lock_Is_Released()
+        public void ReleaseLock_Should_Return_True_When_Lock_Is_Released()
         {
             var lockLocation = new LockLocation()
             {
@@ -58,6 +58,8 @@ namespace Locking.App.Test
             lockLocation.FileSystem.File.Create(filePath);
 
             var locker = new FileLocker();
+            locker.IsLockAcquired = true;
+
             bool releasedLock = locker.ReleaseLock(lockLocation);
 
             Assert.True(releasedLock);
