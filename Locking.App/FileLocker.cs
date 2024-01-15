@@ -21,10 +21,7 @@ namespace Locking.App
             }
 
             lockLocation.FileSystem.Directory.CreateDirectory(lockLocation.LockDirectory);
-            using (var stream = lockLocation.FileSystem.File.Create(filePath))
-            {
-                // File creation logic here
-            }
+            using (var stream = lockLocation.FileSystem.File.Create(filePath)){}
             IsLockAcquired = true;
             return true;
         }

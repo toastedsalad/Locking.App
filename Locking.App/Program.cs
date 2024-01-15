@@ -1,7 +1,6 @@
 ﻿using System.IO.Abstractions;
 using System;
 using System.Threading;
-using System.Net.Sockets;
 
 namespace Locking.App
 {
@@ -21,54 +20,39 @@ namespace Locking.App
             };
             locker = new FileLocker();
 
-            // Register the CancelKeyPress event handler
             Console.CancelKeyPress += new ConsoleCancelEventHandler(CancelKeyPressHandler);
+
+            Action workToDo = () =>
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                    if (cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        Console.WriteLine("Operation cancelled.");
+                        break;
+                    }
+                    Console.WriteLine("Doing work");
+                    Thread.Sleep(1000);
+                }
+            };
 
             while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
-                if (TryAcquireLockAndWork())
+                if (LockManager.TryAcquireLockAndExecute(locker, lockLocation, workToDo))
                 {
                     break;
                 }
 
                 Console.WriteLine("Waiting for lock...");
-                Thread.Sleep(1000); // Wait for some time before trying again
+                Thread.Sleep(1000);
             }
         }
-
-        private static bool TryAcquireLockAndWork()
-        {
-            if (locker.GetLock(lockLocation))
-            {
-                try
-                {
-                    for (int i = 0; i < 100; i++)
-                    {
-                        if (cancellationTokenSource.Token.IsCancellationRequested)
-                        {
-                            Console.WriteLine("Operation cancelled.");
-                            return true; // Exit the method as the operation is cancelled
-                        }
-                        Console.WriteLine("Doing work");
-                        Thread.Sleep(1000);
-                    }
-                }
-                finally
-                {
-                    locker.ReleaseLock(lockLocation);
-                }
-                return true; // Work is done, exit the loop
-            }
-            return false; // Lock not acquired, keep trying
-        }
-
 
         private static void CancelKeyPressHandler(object sender, ConsoleCancelEventArgs args)
         {
             Console.WriteLine("Cancel key pressed. Operation will be cancelled.");
             cancellationTokenSource.Cancel();
 
-            // Release the lock if it's acquired
             if (locker != null && locker.IsLockAcquired)
             {
                 locker.ReleaseLock(lockLocation);

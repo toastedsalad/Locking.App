@@ -1,4 +1,5 @@
 using System.IO.Abstractions.TestingHelpers;
+using Moq;
 
 namespace Locking.App.Test
 {
@@ -64,6 +65,28 @@ namespace Locking.App.Test
 
             Assert.True(releasedLock);
             Assert.False(lockLocation.FileSystem.File.Exists(filePath));
+        }
+
+        [Fact]
+        public void TryAcquireLockAndExecute_Should_Execute_Action_When_Lock_Acquired()
+        {
+            // Arrange
+            var mockLocker = new Mock<ILocker>();
+            var lockLocation = new LockLocation { };
+            bool actionExecuted = false;
+            // Here we setup the action that will be executed
+            // The action set var to true
+            Action mockAction = () => actionExecuted = true;
+
+            mockLocker.Setup(m => m.GetLock(lockLocation)).Returns(true);
+            mockLocker.Setup(m => m.ReleaseLock(lockLocation));
+
+            // Act
+            var result = LockManager.TryAcquireLockAndExecute(mockLocker.Object, lockLocation, mockAction);
+
+            // Assert
+            Assert.True(result);
+            Assert.True(actionExecuted);
         }
     }
 }
