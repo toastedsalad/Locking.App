@@ -1,6 +1,4 @@
-﻿using System.IO;
-
-namespace Locking.App
+﻿namespace Locking.App
 {
     public class FileLocker : ILocker
     {

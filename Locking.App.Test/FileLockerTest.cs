@@ -1,4 +1,7 @@
 using System.IO.Abstractions.TestingHelpers;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
+using Azure;
 using Moq;
 
 namespace Locking.App.Test
@@ -6,7 +9,7 @@ namespace Locking.App.Test
     public class FileLockerTest
     {
         [Fact]
-        public void GetLock_Should_Return_True_When_Lock_Is_Acquired()
+        public void FileLocker_GetLock_Should_Return_True_When_Lock_Is_Acquired()
         {
             var lockLocation = new LockLocation()
             {
@@ -24,7 +27,7 @@ namespace Locking.App.Test
         }
 
         [Fact]
-        public void GetLock_Should_Return_False_When_Lock_Cant_Be_Acquired()
+        public void FileLocker_GetLock_Should_Return_False_When_Lock_Cant_Be_Acquired()
         {
             var lockLocation = new LockLocation()
             {
@@ -45,7 +48,7 @@ namespace Locking.App.Test
         }
 
         [Fact]
-        public void ReleaseLock_Should_Return_True_When_Lock_Is_Released()
+        public void FileLocker_ReleaseLock_Should_Return_True_When_Lock_Is_Released()
         {
             var lockLocation = new LockLocation()
             {
@@ -68,25 +71,49 @@ namespace Locking.App.Test
         }
 
         [Fact]
-        public void TryAcquireLockAndExecute_Should_Execute_Action_When_Lock_Acquired()
+        public void AzureBlobLocker_GetLock_Should_Call_Acquire_Once()
         {
             // Arrange
-            var mockLocker = new Mock<ILocker>();
+            var mockBlobStorageHelper = new Mock<IAzureBlobStorageHelper>();
+            var mockLeaseClient = new Mock<BlobLeaseClient>();
+            var locker = new AzureBlobLocker(mockBlobStorageHelper.Object);
             var lockLocation = new LockLocation { };
-            bool actionExecuted = false;
-            // Here we setup the action that will be executed
-            // The action set var to true
-            Action mockAction = () => actionExecuted = true;
 
-            mockLocker.Setup(m => m.GetLock(lockLocation)).Returns(true);
-            mockLocker.Setup(m => m.ReleaseLock(lockLocation));
+            mockBlobStorageHelper.Setup(m => m.CreateLeaseClient(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(mockLeaseClient.Object);
+
+            mockLeaseClient.Setup(m => m.Acquire(It.IsAny<TimeSpan>(), null, CancellationToken.None))
+                .Returns(Response.FromValue((BlobLease)null, null));
 
             // Act
-            var result = LockManager.TryAcquireLockAndExecute(mockLocker.Object, lockLocation, mockAction);
+            locker.GetLock(lockLocation);
 
             // Assert
-            Assert.True(result);
-            Assert.True(actionExecuted);
+            mockLeaseClient.Verify(m => m.Acquire(It.IsAny<TimeSpan>(), null, CancellationToken.None), Times.Once);
         }
+
+        [Fact]
+        public void AzureBlobLocker_GetLock_Should_Return_False_WhenLockNotAcquired()
+        {
+            // Arrange
+            var mockBlobStorageHelper = new Mock<IAzureBlobStorageHelper>();
+            var mockLeaseClient = new Mock<BlobLeaseClient>();
+            var locker = new AzureBlobLocker(mockBlobStorageHelper.Object);
+            var lockLocation = new LockLocation { };
+
+            mockBlobStorageHelper.Setup(m => m.CreateLeaseClient(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(mockLeaseClient.Object);
+
+            mockLeaseClient.Setup(m => m.Acquire(It.IsAny<TimeSpan>(), null, CancellationToken.None))
+                .Throws(new Exception());
+
+            // Act
+            bool result = locker.GetLock(lockLocation);
+
+            // Assert
+            Assert.False(result);
+        }
+
+
     }
 }

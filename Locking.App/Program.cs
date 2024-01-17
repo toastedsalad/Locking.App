@@ -1,12 +1,10 @@
 ﻿using System.IO.Abstractions;
-using System;
-using System.Threading;
 
 namespace Locking.App
 {
     internal class Program
     {
-        private static FileLocker locker;
+        private static AzureBlobLocker locker;
         private static LockLocation lockLocation;
         private static CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
 
@@ -14,11 +12,12 @@ namespace Locking.App
         {
             lockLocation = new LockLocation()
             {
-                LockDirectory = @"C:\temp",
-                LockName = "lock",
-                FileSystem = new FileSystem()
+                ConnectionString = "connstring",
+                ContainerName = "mycontainer",
+                BlobName = "lock"
             };
-            locker = new FileLocker();
+            var helper = new AzureBlobStorageHelper();
+            locker = new AzureBlobLocker(helper);
 
             Console.CancelKeyPress += new ConsoleCancelEventHandler(CancelKeyPressHandler);
 
@@ -55,6 +54,7 @@ namespace Locking.App
 
             if (locker != null && locker.IsLockAcquired)
             {
+                Console.WriteLine("Releassing lock...");
                 locker.ReleaseLock(lockLocation);
             }
         }
