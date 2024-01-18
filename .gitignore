@@ -179,4 +179,6 @@ node_modules/
 # TFS 2012 Local Workspace
 $tf/
 
+
+azurite_workspace/
 # End of .gitignore

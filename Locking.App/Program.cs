@@ -1,6 +1,4 @@
-﻿using System.IO.Abstractions;
-
-namespace Locking.App
+﻿namespace Locking.App
 {
     internal class Program
     {
@@ -12,12 +10,11 @@ namespace Locking.App
         {
             lockLocation = new LockLocation()
             {
-                ConnectionString = "connstring",
+                ConnectionString = "conncetionstring",
                 ContainerName = "mycontainer",
                 BlobName = "lock"
             };
-            var helper = new AzureBlobStorageHelper();
-            locker = new AzureBlobLocker(helper);
+            locker = new AzureBlobLocker();
 
             Console.CancelKeyPress += new ConsoleCancelEventHandler(CancelKeyPressHandler);
 

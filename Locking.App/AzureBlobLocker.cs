@@ -1,24 +1,35 @@
-﻿using Azure.Storage.Blobs.Specialized;
-using System;
+﻿using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Specialized;
 
 namespace Locking.App
 {
     public class AzureBlobLocker : ILocker
     {
-        private readonly IAzureBlobStorageHelper blobStorageHelper;
         private BlobLeaseClient leaseClient;
         private string leaseId;
-        public bool IsLockAcquired { get; set; }
+        public bool IsLockAcquired { get; private set; }
 
-        public AzureBlobLocker(IAzureBlobStorageHelper blobStorageHelper)
+        public AzureBlobLocker()
         {
             IsLockAcquired = false;
-            this.blobStorageHelper = blobStorageHelper;
         }
 
         public bool GetLock(LockLocation lockLocation)
         {
-            leaseClient = blobStorageHelper.CreateLeaseClient(lockLocation.ConnectionString, lockLocation.ContainerName, lockLocation.BlobName);
+            var blobServiceClient = new BlobServiceClient(lockLocation.ConnectionString);
+            var blobContainerClient = blobServiceClient.GetBlobContainerClient(lockLocation.ContainerName);
+            var blobClient = blobContainerClient.GetBlobClient(lockLocation.BlobName);
+
+            // Create the container if it doesn't exist
+            blobContainerClient.CreateIfNotExists();
+
+            // Check if the blob is there and if it is don't try to create it
+            if (!blobClient.Exists())
+            {
+                blobClient.Upload(new BinaryData(Array.Empty<byte>()));
+            }
+
+            leaseClient = blobClient.GetBlobLeaseClient();
             try
             {
                 var leaseDuration = new TimeSpan(-1); // Infinite lease
@@ -36,6 +47,8 @@ namespace Locking.App
 
         public bool ReleaseLock(LockLocation lockLocation)
         {
+            if (!IsLockAcquired) return true;
+
             if (leaseClient != null && !string.IsNullOrEmpty(leaseId))
             {
                 leaseClient.Release();
@@ -43,6 +56,7 @@ namespace Locking.App
                 IsLockAcquired = false;
                 return true;
             }
+
             IsLockAcquired = false;
             return true;
         }
